@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎵 Raise Your Hands to Raise the Roof! 🎵</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        
+        .hero {
+            margin-bottom: 20px;
+            padding: 0 10px;
+        }
+        
+        .hero h1 {
+            font-size: clamp(1.5rem, 4vw, 2.5rem);
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            line-height: 1.2;
+        }
+        
+        .hero p {
+            font-size: clamp(0.9rem, 2.5vw, 1.2rem);
+            margin: 10px 0;
+            opacity: 0.9;
+        }
+        
+        .video-container {
+            max-width: min(90vw, 800px);
+            margin: 0 auto 20px;
+            position: relative;
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            padding: 15px;
+            aspect-ratio: 4/3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #input_video {
+            width: 100%;
+            height: 100%;
+            max-width: 640px;
+            max-height: 480px;
+            border-radius: 10px;
+            transform: scaleX(-1);
+            object-fit: cover;
+        }
+        
+        #output_canvas {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            width: calc(100% - 30px);
+            height: calc(100% - 30px);
+            max-width: 640px;
+            max-height: 480px;
+            border-radius: 10px;
+            transform: scaleX(-1);
+            pointer-events: auto;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+            padding: 0 10px;
+        }
+        
+        button {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            color: white;
+            border: none;
+            padding: clamp(8px, 2vw, 12px) clamp(15px, 4vw, 25px);
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: clamp(12px, 2.5vw, 14px);
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            min-width: 120px;
+            white-space: nowrap;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        
+        button.active {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+        }
+        
+        .instructions {
+            max-width: 900px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+            padding: 0 15px;
+        }
+        
+        .instruction-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .instruction-card h3 {
+            margin-top: 0;
+            font-size: clamp(1.1rem, 3vw, 1.5rem);
+        }
+        
+        .instruction-card ul {
+            text-align: left;
+            padding-left: 20px;
+        }
+        
+        .instruction-card li {
+            margin: 8px 0;
+            font-size: clamp(0.9rem, 2.2vw, 1.1rem);
+        }
+        
+        .footer {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            margin-bottom: 20px;
+        }
+        
+        .footer a {
+            color: #4ecdc4;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .status-display {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 15px;
+            margin: 15px auto;
+            max-width: 600px;
+            padding: 0 15px;
+        }
+        
+        .status-item {
+            background: rgba(0,0,0,0.4);
+            padding: 10px 8px;
+            border-radius: 10px;
+            min-width: 0;
+        }
+        
+        .status-item div:first-child {
+            font-size: clamp(0.8rem, 2vw, 0.9rem);
+            margin-bottom: 5px;
+        }
+        
+        .status-value {
+            font-weight: bold;
+            color: #4ecdc4;
+            font-size: clamp(0.9rem, 2.5vw, 1.2rem);
+            word-break: break-word;
+        }
+        
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+            }
+            
+            .video-container {
+                padding: 10px;
+                margin-bottom: 15px;
+            }
+            
+            .instructions {
+                grid-template-columns: 1fr;
+                gap: 15px;
+                margin-top: 15px;
+            }
+            
+            .instruction-card {
+                padding: 15px;
+            }
+            
+            .controls {
+                gap: 8px;
+                margin: 10px 0;
+            }
+            
+            button {
+                min-width: 100px;
+                flex: 1;
+                max-width: 150px;
+            }
+            
+            .status-display {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+                margin: 10px auto;
+            }
+            
+            .hero h1 {
+                margin-bottom: 5px;
+            }
+        }
+        
+        /* Very small screens */
+        @media (max-width: 480px) {
+            .instructions {
+                padding: 0 10px;
+            }
+            
+            .instruction-card {
+                padding: 12px;
+            }
+            
+            .status-display {
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .video-container {
+                aspect-ratio: 3/2;
+            }
+        }
+        
+        /* Landscape mobile */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .hero {
+                margin-bottom: 10px;
+            }
+            
+            .hero h1 {
+                font-size: 1.5rem;
+            }
+            
+            .video-container {
+                max-height: 60vh;
+                margin-bottom: 10px;
+            }
+            
+            .instructions {
+                margin-top: 10px;
+            }
+            
+            .footer {
+                margin-top: 15px;
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+    <!-- MediaPipe -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+    <div class="hero">
+        <h1>🎵 Raise Your Hands to Raise the Roof! 🎵</h1>
+        <p>Control music and drums with your hand gestures using AI-powered computer vision</p>
+    </div>
+    
+    <div class="video-container">
+        <video id="input_video" autoplay muted playsinline></video>
+        <canvas id="output_canvas"></canvas>
+    </div>
+    
+    <div class="controls">
+        <button id="start-btn">🎵 Start Music Control</button>
+        <button id="audio-btn">🔊 Toggle Audio</button>
+        <button id="drums-btn">🥁 Toggle Drums</button>
+        <button id="demo-btn">✨ Full 3D Experience</button>
+    </div>
+    
+    <div class="status-display">
+        <div class="status-item">
+            <div>Volume</div>
+            <div class="status-value" id="volume-status">0.00</div>
+        </div>
+        <div class="status-item">
+            <div>Pitch</div>
+            <div class="status-value" id="pitch-status">C4</div>
+        </div>
+        <div class="status-item">
+            <div>Frequency</div>
+            <div class="status-value" id="frequency-status">261.63 Hz</div>
+        </div>
+        <div class="status-item">
+            <div>Last Drum</div>
+            <div class="status-value" id="drum-status">None</div>
+        </div>
+    </div>
+    
+    <div class="instructions">
+        <div class="instruction-card">
+            <h3>🫲 Right Hand - Audio Control</h3>
+            <ul>
+                <li><strong>Volume:</strong> Move hand up and down</li>
+                <li><strong>Pitch:</strong> Open and close your hand</li>
+                <li><strong>Range:</strong> 200Hz - 1200Hz</li>
+                <li><strong>Notes:</strong> Real-time musical scale</li>
+            </ul>
+            <p><em>Higher hand position = Louder volume<br>
+            More open hand = Higher pitch</em></p>
+        </div>
+        
+        <div class="instruction-card">
+            <h3>🫱 Left Hand - Drum Control</h3>
+            <ul>
+                <li><strong>🦵 Kick:</strong> Fast downward movement</li>
+                <li><strong>🥁 Snare:</strong> Quick upward movement</li>
+                <li><strong>🎶 Hi-Hat:</strong> Fast horizontal (closed hand)</li>
+                <li><strong>👏 Clap:</strong> Fast horizontal (open hand)</li>
+            </ul>
+            <p><em>Faster movements = Louder drums<br>
+            Hand shape affects drum type</em></p>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <h3>🚀 Ready for More?</h3>
+        <p>Experience the full power with 3D visualization, multiple modes, and advanced controls!</p>
+        <p>
+            <a href="3d-visualizer-demo.html">🎨 Try Full 3D Experience</a> |
+            <a href="https://github.com/GunaTeja777/Control-Music-Using-Hand-Gestures" target="_blank" rel="noopener">💻 Code & Tutorials</a>
+        </p>
+    </div>
+
+    <script src="js/mediapipe-handler.js"></script>
+    <script>
+        let mediaPipeHandler;
+        let isStarted = false;
+        let statusUpdateInterval;
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            setupInterface();
+        });
+        
+        function setupInterface() {
+            document.getElementById('start-btn').addEventListener('click', toggleSystem);
+            document.getElementById('audio-btn').addEventListener('click', toggleAudio);
+            document.getElementById('drums-btn').addEventListener('click', toggleDrums);
+            document.getElementById('demo-btn').addEventListener('click', () => {
+                window.open('3d-visualizer-demo.html', '_blank');
+            });
+            
+            console.log('Enhanced demo interface ready');
+        }
+        
+        async function toggleSystem() {
+            if (!isStarted) {
+                await startSystem();
+            } else {
+                stopSystem();
+            }
+        }
+        
+        async function startSystem() {
+            try {
+                mediaPipeHandler = new MediaPipeHandler();
+                
+                // Start status monitoring
+                statusUpdateInterval = setInterval(updateStatus, 100);
+                
+                isStarted = true;
+                updateButtonStates();
+                
+                console.log('Enhanced music control system started!');
+                
+            } catch (error) {
+                console.error('Error starting system:', error);
+                alert('Failed to start system. Please check camera permissions.');
+            }
+        }
+        
+        function stopSystem() {
+            if (mediaPipeHandler) {
+                mediaPipeHandler.stop();
+            }
+            
+            if (statusUpdateInterval) {
+                clearInterval(statusUpdateInterval);
+            }
+            
+            isStarted = false;
+            updateButtonStates();
+            
+            // Reset status display
+            document.getElementById('volume-status').textContent = '0.00';
+            document.getElementById('pitch-status').textContent = 'C4';
+            document.getElementById('frequency-status').textContent = '261.63 Hz';
+            document.getElementById('drum-status').textContent = 'None';
+            
+            console.log('Enhanced music control system stopped');
+        }
+        
+        function toggleAudio() {
+            if (mediaPipeHandler) {
+                mediaPipeHandler.toggleAudio();
+                updateButtonStates();
+            }
+        }
+        
+        function toggleDrums() {
+            if (mediaPipeHandler) {
+                mediaPipeHandler.toggleDrums();
+                updateButtonStates();
+            }
+        }
+        
+        function updateButtonStates() {
+            const startBtn = document.getElementById('start-btn');
+            const audioBtn = document.getElementById('audio-btn');
+            const drumsBtn = document.getElementById('drums-btn');
+            
+            if (isStarted) {
+                startBtn.textContent = '⏹️ Stop System';
+                startBtn.classList.add('active');
+            } else {
+                startBtn.textContent = '🎵 Start Music Control';
+                startBtn.classList.remove('active');
+            }
+            
+            if (mediaPipeHandler) {
+                const audioStatus = mediaPipeHandler.getAudioStatus();
+                const drumStatus = mediaPipeHandler.getDrumStatus();
+                
+                audioBtn.textContent = audioStatus.audioEnabled ? '🔇 Disable Audio' : '🔊 Enable Audio';
+                audioBtn.classList.toggle('active', audioStatus.audioEnabled);
+                
+                drumsBtn.textContent = drumStatus.enabled ? '🚫 Disable Drums' : '🥁 Enable Drums';
+                drumsBtn.classList.toggle('active', drumStatus.enabled);
+            }
+        }
+        
+        function updateStatus() {
+            if (!mediaPipeHandler) return;
+            
+            const audioValues = mediaPipeHandler.getAudioControlValues();
+            
+            document.getElementById('volume-status').textContent = audioValues.volume.toFixed(2);
+            document.getElementById('pitch-status').textContent = audioValues.pitch;
+            document.getElementById('frequency-status').textContent = audioValues.frequency.toFixed(2) + ' Hz';
+        }
+        
+        // Global drum hit tracking for status display
+        let lastDrumHit = 'None';
+        let drumHitTimeout;
+        
+        // Override the drum trigger to show status
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            if (args[0] && args[0].includes('🥁') && args[0].includes('hit!')) {
+                const drumType = args[0].match(/🥁 (\w+)/)[1];
+                lastDrumHit = drumType.toUpperCase();
+                document.getElementById('drum-status').textContent = lastDrumHit;
+                
+                // Clear after 2 seconds
+                clearTimeout(drumHitTimeout);
+                drumHitTimeout = setTimeout(() => {
+                    document.getElementById('drum-status').textContent = 'None';
+                }, 2000);
+            }
+            originalConsoleLog.apply(console, args);
+        };
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (event) => {
+            switch (event.code) {
+                case 'Space':
+                    event.preventDefault();
+                    toggleSystem();
+                    break;
+                case 'KeyA':
+                    toggleAudio();
+                    break;
+                case 'KeyD':
+                    toggleDrums();
+                    break;
+                case 'KeyF':
+                    document.getElementById('demo-btn').click();
+                    break;
+            }
+        });
+        
+        console.log('🎵 Enhanced Hand Gesture Music Control Demo Ready!');
+        console.log('Keyboard shortcuts: Space=Start/Stop, A=Audio, D=Drums, F=Full Demo');
+    </script>
+</body>
+</html>

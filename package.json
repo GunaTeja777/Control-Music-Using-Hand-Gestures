@@ -1,0 +1,50 @@
+{
+  "name": "control-music-using-hand-gestures",
+  "version": "1.0.0",
+  "description": "A web application that allows users to control music playback using hand gestures detected through their webcam",
+  "main": "index.html",
+  "scripts": {
+    "start": "http-server -p 8000 -c-1",
+    "dev": "http-server -p 8000 -c-1 -o",
+    "lint": "eslint js/*.js",
+    "serve": "python -m http.server 8000",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "keywords": [
+    "gesture-recognition",
+    "mediapipe",
+    "three.js",
+    "music-control",
+    "computer-vision",
+    "hand-tracking",
+    "web-audio",
+    "javascript",
+    "webrtc"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/Control-Music-Using-Hand-Gestures.git"
+  },
+  "homepage": "https://github.com/yourusername/Control-Music-Using-Hand-Gestures#readme",
+  "bugs": {
+    "url": "https://github.com/yourusername/Control-Music-Using-Hand-Gestures/issues"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "eslint": "^8.0.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "browserslist": [
+    "Chrome >= 88",
+    "Firefox >= 85",
+    "Safari >= 14",
+    "Edge >= 88"
+  ],
+  "dependencies": {},
+  "peerDependencies": {},
+  "optionalDependencies": {}
+}

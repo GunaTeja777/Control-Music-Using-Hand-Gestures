@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediaPipe Hands Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .video-container {
+            position: relative;
+            display: inline-block;
+            margin: 20px;
+        }
+        #input_video {
+            width: 640px;
+            height: 480px;
+            border: 2px solid #333;
+            border-radius: 10px;
+            transform: scaleX(-1); /* Mirror effect */
+        }
+        #output_canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 640px;
+            height: 480px;
+            border: 2px solid #333;
+            border-radius: 10px;
+            transform: scaleX(-1); /* Mirror effect */
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        .control-group {
+            margin: 10px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .info-panel {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        #landmark-info {
+            font-family: monospace;
+            white-space: pre-wrap;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .status {
+            margin: 10px 0;
+        }
+        .status-dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff4444;
+            margin-right: 10px;
+        }
+        .status-dot.active {
+            background: #44ff44;
+        }
+        .settings {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px 0;
+        }
+        input[type="range"] {
+            width: 200px;
+        }
+        input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        .audio-output {
+            background: #333;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            color: #00ff00;
+            font-size: 14px;
+        }
+    </style>
+    <!-- MediaPipe -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>🖐️ MediaPipe Hands Tracking Demo</h1>
+        <p>This demo shows real-time hand tracking with all 21 landmarks for both hands.</p>
+        
+        <div class="status">
+            <div id="camera-status" class="status-dot"></div>
+            <span>Camera Status</span>
+        </div>
+        
+        <div class="video-container">
+            <video id="input_video" autoplay muted playsinline></video>
+            <canvas id="output_canvas"></canvas>
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <h3>Camera Controls</h3>
+                <button id="start-btn">Start Camera</button>
+                <button id="stop-btn">Stop Camera</button>
+                <button id="restart-btn">Restart Camera</button>
+            </div>
+            
+            <div class="control-group">
+                <h3>Display Options</h3>
+                <button id="toggle-connections">Toggle Connections</button>
+                <button id="toggle-landmarks">Toggle Landmarks</button>
+                <button id="toggle-numbers">Toggle Numbers</button>
+                <button id="toggle-labels">Toggle Labels</button>
+                <button id="toggle-audio">Toggle Audio Display</button>
+            </div>
+            
+            <div class="control-group">
+                <h3>Audio Control Test</h3>
+                <button id="test-audio">Test Audio Values</button>
+                <button id="log-audio">Log Audio to Console</button>
+                <div id="audio-output" class="audio-output">
+                    Audio values will appear here...
+                </div>
+            </div>
+        </div>
+        
+        <div class="settings">
+            <h3>MediaPipe Settings</h3>
+            <label>
+                Max Number of Hands:
+                <input type="range" id="max-hands" min="1" max="2" value="2" step="1">
+                <span id="max-hands-value">2</span>
+            </label>
+            <label>
+                Model Complexity:
+                <input type="range" id="model-complexity" min="0" max="1" value="1" step="1">
+                <span id="model-complexity-value">1</span>
+            </label>
+            <label>
+                Detection Confidence:
+                <input type="range" id="detection-confidence" min="0" max="1" value="0.5" step="0.1">
+                <span id="detection-confidence-value">0.5</span>
+            </label>
+            <label>
+                Tracking Confidence:
+                <input type="range" id="tracking-confidence" min="0" max="1" value="0.5" step="0.1">
+                <span id="tracking-confidence-value">0.5</span>
+            </label>
+        </div>
+        
+        <div class="info-panel">
+            <h3>Hand Landmarks Information</h3>
+            <div id="landmark-info">
+                Initializing MediaPipe Hands...
+                
+                Landmark indices:
+                0: WRIST
+                1-4: THUMB (CMC, MCP, IP, TIP)
+                5-8: INDEX_FINGER (MCP, PIP, DIP, TIP)
+                9-12: MIDDLE_FINGER (MCP, PIP, DIP, TIP)
+                13-16: RING_FINGER (MCP, PIP, DIP, TIP)
+                17-20: PINKY (MCP, PIP, DIP, TIP)
+            </div>
+        </div>
+    </div>
+
+    <script src="js/mediapipe-handler.js"></script>
+    <script>
+        // Initialize MediaPipe handler
+        let mediaPipeHandler;
+        let audioDisplayEnabled = true;
+        let audioUpdateInterval;
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            mediaPipeHandler = new MediaPipeHandler();
+            setupControls();
+            setupSettings();
+            startAudioMonitoring();
+        });
+        
+        function setupControls() {
+            // Camera controls
+            document.getElementById('start-btn').addEventListener('click', () => {
+                mediaPipeHandler.initCamera();
+            });
+            
+            document.getElementById('stop-btn').addEventListener('click', () => {
+                mediaPipeHandler.stop();
+            });
+            
+            document.getElementById('restart-btn').addEventListener('click', () => {
+                mediaPipeHandler.restart();
+            });
+            
+            // Display options
+            document.getElementById('toggle-connections').addEventListener('click', () => {
+                const current = mediaPipeHandler.drawingOptions.showConnections;
+                mediaPipeHandler.setDrawingOptions({
+                    ...mediaPipeHandler.drawingOptions,
+                    showConnections: !current
+                });
+            });
+            
+            document.getElementById('toggle-landmarks').addEventListener('click', () => {
+                const current = mediaPipeHandler.drawingOptions.showLandmarks;
+                mediaPipeHandler.setDrawingOptions({
+                    ...mediaPipeHandler.drawingOptions,
+                    showLandmarks: !current
+                });
+            });
+            
+            document.getElementById('toggle-numbers').addEventListener('click', () => {
+                const current = mediaPipeHandler.drawingOptions.showNumbers;
+                mediaPipeHandler.setDrawingOptions({
+                    ...mediaPipeHandler.drawingOptions,
+                    showNumbers: !current
+                });
+            });
+            
+            document.getElementById('toggle-labels').addEventListener('click', () => {
+                const current = mediaPipeHandler.drawingOptions.showLabels;
+                mediaPipeHandler.setDrawingOptions({
+                    ...mediaPipeHandler.drawingOptions,
+                    showLabels: !current
+                });
+            });
+            
+            document.getElementById('toggle-audio').addEventListener('click', () => {
+                audioDisplayEnabled = !audioDisplayEnabled;
+                const btn = document.getElementById('toggle-audio');
+                btn.textContent = audioDisplayEnabled ? 'Hide Audio Display' : 'Show Audio Display';
+            });
+            
+            // Audio control tests
+            document.getElementById('test-audio').addEventListener('click', () => {
+                testAudioValues();
+            });
+            
+            document.getElementById('log-audio').addEventListener('click', () => {
+                logAudioValues();
+            });
+        }
+        
+        function testAudioValues() {
+            if (!mediaPipeHandler) return;
+            
+            const audioValues = mediaPipeHandler.getAudioControlValues();
+            const outputDiv = document.getElementById('audio-output');
+            
+            outputDiv.innerHTML = `
+                <strong>Current Audio Values:</strong><br>
+                Volume: ${audioValues.volume.toFixed(2)}<br>
+                Pitch: ${audioValues.pitch}<br>
+                Frequency: ${audioValues.frequency.toFixed(2)} Hz<br>
+                Timestamp: ${new Date(audioValues.timestamp).toLocaleTimeString()}
+            `;
+        }
+        
+        function logAudioValues() {
+            if (!mediaPipeHandler) return;
+            
+            const audioValues = mediaPipeHandler.getAudioControlValues();
+            console.log('Audio Control Values:', audioValues);
+            
+            const handsInfo = mediaPipeHandler.getHandsInfo();
+            if (handsInfo) {
+                console.log('Hands Info:', handsInfo);
+                handsInfo.forEach((hand, index) => {
+                    console.log(`Hand ${index + 1}: ${hand.handedness.label}, Y: ${hand.wrist.y.toFixed(3)}`);
+                });
+            }
+        }
+        
+        function startAudioMonitoring() {
+            audioUpdateInterval = setInterval(() => {
+                if (audioDisplayEnabled && mediaPipeHandler) {
+                    const audioValues = mediaPipeHandler.getAudioControlValues();
+                    if (audioValues.volume > 0 || audioValues.pitch !== 'C4') {
+                        updateAudioDisplay(audioValues);
+                    }
+                }
+            }, 100); // Update every 100ms
+        }
+        
+        function updateAudioDisplay(audioValues) {
+            const outputDiv = document.getElementById('audio-output');
+            outputDiv.innerHTML = `
+                Volume: ${audioValues.volume.toFixed(2)} | 
+                Pitch: ${audioValues.pitch} | 
+                Freq: ${audioValues.frequency.toFixed(1)} Hz
+            `;
+        }
+        
+        function setupSettings() {
+            // Max hands
+            const maxHandsSlider = document.getElementById('max-hands');
+            const maxHandsValue = document.getElementById('max-hands-value');
+            maxHandsSlider.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                maxHandsValue.textContent = value;
+                mediaPipeHandler.updateOptions({ maxNumHands: value });
+            });
+            
+            // Model complexity
+            const modelComplexitySlider = document.getElementById('model-complexity');
+            const modelComplexityValue = document.getElementById('model-complexity-value');
+            modelComplexitySlider.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                modelComplexityValue.textContent = value;
+                mediaPipeHandler.updateOptions({ modelComplexity: value });
+            });
+            
+            // Detection confidence
+            const detectionConfidenceSlider = document.getElementById('detection-confidence');
+            const detectionConfidenceValue = document.getElementById('detection-confidence-value');
+            detectionConfidenceSlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                detectionConfidenceValue.textContent = value;
+                mediaPipeHandler.updateOptions({ minDetectionConfidence: value });
+            });
+            
+            // Tracking confidence
+            const trackingConfidenceSlider = document.getElementById('tracking-confidence');
+            const trackingConfidenceValue = document.getElementById('tracking-confidence-value');
+            trackingConfidenceSlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                trackingConfidenceValue.textContent = value;
+                mediaPipeHandler.updateOptions({ minTrackingConfidence: value });
+            });
+        }
+        
+        // Log hand information for debugging
+        setInterval(() => {
+            if (mediaPipeHandler) {
+                const handsInfo = mediaPipeHandler.getHandsInfo();
+                if (handsInfo && handsInfo.length > 0) {
+                    console.log('Hands detected:', handsInfo.length);
+                    handsInfo.forEach((hand, index) => {
+                        console.log(`Hand ${index + 1}: ${hand.handedness.label} (${(hand.confidence * 100).toFixed(1)}%)`);
+                    });
+                }
+            }
+        }, 2000);
+    </script>
+</body>
+</html>

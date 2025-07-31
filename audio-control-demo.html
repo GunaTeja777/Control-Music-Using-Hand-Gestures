@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hand Audio Control Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .video-container {
+            position: relative;
+            display: inline-block;
+            margin: 20px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        #input_video {
+            width: 640px;
+            height: 480px;
+            transform: scaleX(-1);
+        }
+        #output_canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 640px;
+            height: 480px;
+            transform: scaleX(-1);
+        }
+        .controls-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .control-section {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .audio-display {
+            font-size: 24px;
+            text-align: center;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        .volume-value {
+            color: #00ff00;
+            font-weight: bold;
+        }
+        .pitch-value {
+            color: #00bfff;
+            font-weight: bold;
+        }
+        .frequency-value {
+            color: #ffd700;
+            font-weight: bold;
+        }
+        .instructions {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+        }
+        .instruction-item {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+        .emoji {
+            font-size: 2rem;
+            margin-right: 15px;
+            min-width: 50px;
+        }
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            margin: 5px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: scale(1.05);
+        }
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px 0;
+        }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff4444;
+            margin-right: 10px;
+            transition: background-color 0.3s;
+        }
+        .status-dot.active {
+            background: #44ff44;
+        }
+        .range-indicator {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        .range-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            position: relative;
+            margin: 10px 0;
+        }
+        .range-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.2s ease;
+        }
+        .volume-fill {
+            background: linear-gradient(90deg, #ff4444, #ffff44, #44ff44);
+        }
+        .pitch-fill {
+            background: linear-gradient(90deg, #4444ff, #44ffff, #ff44ff);
+        }
+    </style>
+    <!-- MediaPipe -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>🎵 Hand Audio Control Demo</h1>
+        <p>Control volume with your right hand position and pitch with finger spread!</p>
+        
+        <div class="status-indicator">
+            <div id="camera-status" class="status-dot"></div>
+            <span>Camera Status</span>
+        </div>
+        
+        <div class="video-container">
+            <video id="input_video" autoplay muted playsinline></video>
+            <canvas id="output_canvas"></canvas>
+        </div>
+        
+        <div class="controls-panel">
+            <div class="control-section">
+                <h3>🎚️ Volume Control</h3>
+                <div class="audio-display">
+                    Volume: <span id="volume-display" class="volume-value">0.00</span>
+                </div>
+                <div class="range-indicator">
+                    <div class="range-bar">
+                        <div id="volume-bar" class="range-fill volume-fill" style="width: 0%"></div>
+                    </div>
+                    <small>Move your right hand up/down to control volume</small>
+                </div>
+            </div>
+            
+            <div class="control-section">
+                <h3>🎼 Pitch Control</h3>
+                <div class="audio-display">
+                    Pitch: <span id="pitch-display" class="pitch-value">C4</span><br>
+                    <small>Frequency: <span id="frequency-display" class="frequency-value">261.63</span> Hz</small>
+                </div>
+                <div class="range-indicator">
+                    <div class="range-bar">
+                        <div id="pitch-bar" class="range-fill pitch-fill" style="width: 0%"></div>
+                    </div>
+                    <small>Open/close your hand to change pitch</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h3>📋 Instructions</h3>
+            <div class="instruction-item">
+                <span class="emoji">🤚</span>
+                <div>
+                    <strong>Volume Control:</strong> Move your right hand up and down in front of the camera. 
+                    Higher position = higher volume.
+                </div>
+            </div>
+            <div class="instruction-item">
+                <span class="emoji">✋</span>
+                <div>
+                    <strong>Pitch Control:</strong> Open and close your hand (spread fingers apart or bring them together). 
+                    More open = higher pitch.
+                </div>
+            </div>
+            <div class="instruction-item">
+                <span class="emoji">👁️</span>
+                <div>
+                    <strong>Hand Detection:</strong> Make sure your hand is clearly visible and well-lit. 
+                    Use your right hand for best results.
+                </div>
+            </div>
+        </div>
+        
+        <div class="control-section">
+            <h3>🎮 Controls</h3>
+            <button onclick="startCamera()">Start Camera</button>
+            <button onclick="stopCamera()">Stop Camera</button>
+            <button onclick="playTestTone()">Play Test Tone</button>
+            <button onclick="toggleAudioVisual()">Toggle Audio Visual</button>
+        </div>
+        
+        <div id="landmark-info" style="display: none;"></div>
+    </div>
+
+    <script src="js/mediapipe-handler.js"></script>
+    <script>
+        let mediaPipeHandler;
+        let audioContext;
+        let oscillator;
+        let gainNode;
+        let isPlaying = false;
+        let audioVisualEnabled = true;
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeAudioControl();
+        });
+        
+        function initializeAudioControl() {
+            // Initialize MediaPipe
+            mediaPipeHandler = new MediaPipeHandler();
+            
+            // Initialize Web Audio API
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                gainNode = audioContext.createGain();
+                gainNode.connect(audioContext.destination);
+                gainNode.gain.value = 0.1; // Start with low volume
+                
+                console.log('Audio context initialized');
+            } catch (error) {
+                console.error('Error initializing audio:', error);
+            }
+            
+            // Start monitoring audio values
+            startAudioMonitoring();
+        }
+        
+        function startAudioMonitoring() {
+            setInterval(() => {
+                if (mediaPipeHandler && audioVisualEnabled) {
+                    updateAudioDisplay();
+                }
+            }, 50); // Update every 50ms for smooth display
+        }
+        
+        function updateAudioDisplay() {
+            const audioValues = mediaPipeHandler.getAudioControlValues();
+            
+            // Update volume display
+            document.getElementById('volume-display').textContent = audioValues.volume.toFixed(2);
+            document.getElementById('volume-bar').style.width = (audioValues.volume * 100) + '%';
+            
+            // Update pitch display
+            document.getElementById('pitch-display').textContent = audioValues.pitch;
+            document.getElementById('frequency-display').textContent = audioValues.frequency.toFixed(2);
+            
+            // Calculate pitch position for bar (C4 to C5)
+            const notes = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5'];
+            const noteIndex = notes.indexOf(audioValues.pitch);
+            const pitchPercentage = noteIndex >= 0 ? (noteIndex / (notes.length - 1)) * 100 : 0;
+            document.getElementById('pitch-bar').style.width = pitchPercentage + '%';
+            
+            // Update audio if playing
+            if (isPlaying && audioContext && gainNode && oscillator) {
+                gainNode.gain.value = audioValues.volume * 0.1; // Scale down for comfort
+                oscillator.frequency.value = audioValues.frequency;
+            }
+        }
+        
+        function startCamera() {
+            if (mediaPipeHandler) {
+                mediaPipeHandler.initCamera();
+            }
+        }
+        
+        function stopCamera() {
+            if (mediaPipeHandler) {
+                mediaPipeHandler.stop();
+            }
+            stopTestTone();
+        }
+        
+        function playTestTone() {
+            if (!audioContext) {
+                console.error('Audio context not available');
+                return;
+            }
+            
+            if (isPlaying) {
+                stopTestTone();
+                return;
+            }
+            
+            try {
+                // Resume audio context if suspended
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+                
+                oscillator = audioContext.createOscillator();
+                oscillator.type = 'sine';
+                oscillator.frequency.value = 261.63; // C4
+                oscillator.connect(gainNode);
+                oscillator.start();
+                
+                isPlaying = true;
+                document.querySelector('button[onclick="playTestTone()"]').textContent = 'Stop Test Tone';
+                
+                console.log('Test tone started');
+            } catch (error) {
+                console.error('Error playing test tone:', error);
+            }
+        }
+        
+        function stopTestTone() {
+            if (oscillator && isPlaying) {
+                oscillator.stop();
+                oscillator = null;
+                isPlaying = false;
+                document.querySelector('button[onclick="playTestTone()"]').textContent = 'Play Test Tone';
+                
+                console.log('Test tone stopped');
+            }
+        }
+        
+        function toggleAudioVisual() {
+            audioVisualEnabled = !audioVisualEnabled;
+            const btn = document.querySelector('button[onclick="toggleAudioVisual()"]');
+            btn.textContent = audioVisualEnabled ? 'Hide Audio Visual' : 'Show Audio Visual';
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (event) => {
+            switch (event.code) {
+                case 'Space':
+                    event.preventDefault();
+                    playTestTone();
+                    break;
+                case 'KeyS':
+                    event.preventDefault();
+                    stopCamera();
+                    break;
+                case 'KeyR':
+                    event.preventDefault();
+                    startCamera();
+                    break;
+            }
+        });
+        
+        // Log audio values for debugging
+        setInterval(() => {
+            if (mediaPipeHandler) {
+                const audioValues = mediaPipeHandler.getAudioControlValues();
+                const handsInfo = mediaPipeHandler.getHandsInfo();
+                
+                if (handsInfo && handsInfo.length > 0) {
+                    console.log('Audio Values:', audioValues);
+                    handsInfo.forEach((hand, index) => {
+                        if (hand.isRight) {
+                            console.log(`Right Hand Y: ${hand.wrist.y.toFixed(3)}, Volume: ${audioValues.volume.toFixed(2)}`);
+                        }
+                    });
+                }
+            }
+        }, 5000); // Log every 5 seconds
+    </script>
+</body>
+</html>

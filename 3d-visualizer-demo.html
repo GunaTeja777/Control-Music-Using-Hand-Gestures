@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Audio-Visual Hand Controller</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #0c0c0c 0%, #1e1e3e 50%, #2a1810 100%);
+            color: white;
+            overflow-x: hidden;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            height: 100vh;
+            gap: 0;
+        }
+        .main-view {
+            position: relative;
+            background: #000;
+        }
+        #three-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .overlay-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        .overlay-info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            font-family: monospace;
+            font-size: 12px;
+            min-width: 200px;
+        }
+        .sidebar {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            backdrop-filter: blur(15px);
+            border-left: 1px solid rgba(255, 255, 255, 0.2);
+            overflow-y: auto;
+        }
+        .section {
+            margin-bottom: 25px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #4ecdc4;
+            border-bottom: 1px solid rgba(78, 205, 196, 0.3);
+            padding-bottom: 8px;
+        }
+        .camera-container {
+            width: 100%;
+            margin: 15px 0;
+        }
+        #input_video {
+            width: 100%;
+            border-radius: 8px;
+            transform: scaleX(-1);
+            max-height: 200px;
+            object-fit: cover;
+        }
+        #output_canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            transform: scaleX(-1);
+            pointer-events: none;
+        }
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 6px;
+            font-size: 12px;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ff4444;
+            transition: background-color 0.3s;
+        }
+        .status-dot.active {
+            background: #44ff44;
+            box-shadow: 0 0 8px #44ff44;
+        }
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin: 5px 0;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            font-size: 12px;
+            width: 100%;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        button.active {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+        }
+        button.viz-mode {
+            margin: 3px;
+            width: calc(50% - 6px);
+            font-size: 10px;
+            padding: 8px 10px;
+        }
+        .viz-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+        .range-control {
+            margin: 10px 0;
+        }
+        .range-control label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 12px;
+            color: #4ecdc4;
+        }
+        .range-control input {
+            width: 100%;
+            margin-bottom: 3px;
+            accent-color: #4ecdc4;
+        }
+        .range-value {
+            color: #00ff88;
+            font-family: monospace;
+            font-size: 11px;
+        }
+        .audio-display {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 12px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 11px;
+        }
+        .display-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            padding: 3px 0;
+        }
+        .display-label {
+            font-weight: bold;
+        }
+        .display-value {
+            color: #00ff88;
+        }
+        .beat-indicators {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin: 10px 0;
+        }
+        .beat-indicator {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 8px;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 11px;
+            transition: all 0.3s ease;
+        }
+        .beat-indicator.active {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            transform: scale(1.1);
+        }
+        .instructions {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        .gesture-tips {
+            margin-top: 10px;
+        }
+        .gesture-tip {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            padding: 5px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+        .gesture-emoji {
+            margin-right: 8px;
+            font-size: 14px;
+        }
+        @media (max-width: 1000px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: 1fr auto;
+            }
+            .sidebar {
+                max-height: 40vh;
+                border-left: none;
+                border-top: 1px solid rgba(255, 255, 255, 0.2);
+            }
+        }
+    </style>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- MediaPipe -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="main-view">
+            <canvas id="three-canvas"></canvas>
+            
+            <div class="overlay-controls">
+                <h4 style="margin: 0 0 10px 0;">🎵 Raise Your Hands to Raise the Roof! 🎵</h4>
+                <button id="toggle-all">Start Experience</button>
+                <button id="toggle-viz">Pause Visualization</button>
+                
+                <div style="margin-top: 15px; font-size: 12px; color: #4ecdc4;">
+                    <div><strong>🫲 RIGHT HAND:</strong> Volume & Pitch Control</div>
+                    <div><strong>🫱 LEFT HAND:</strong> Drum Triggers</div>
+                </div>
+            </div>
+            
+            <div class="overlay-info">
+                <div style="border-bottom: 1px solid #4ecdc4; padding-bottom: 5px; margin-bottom: 8px;">
+                    <strong>🎵 Live Audio Values</strong>
+                </div>
+                <div class="display-row">
+                    <span>Mode:</span>
+                    <span id="current-mode">Waveform</span>
+                </div>
+                <div class="display-row">
+                    <span>Volume:</span>
+                    <span id="volume-info">0.00</span>
+                </div>
+                <div class="display-row">
+                    <span>Pitch:</span>
+                    <span id="pitch-info">C4</span>
+                </div>
+                <div class="display-row">
+                    <span>Frequency:</span>
+                    <span id="frequency-info">261.63 Hz</span>
+                </div>
+                <div class="display-row">
+                    <span>Particles:</span>
+                    <span id="particle-info">0</span>
+                </div>
+                <div class="display-row">
+                    <span>Beat:</span>
+                    <span id="beat-info">None</span>
+                </div>
+                
+                <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #4ecdc4; font-size: 10px;">
+                    <div><strong>💻 <a href="https://github.com/GunaTeja777/Control-Music-Using-Hand-Gestures" target="_blank" style="color: #4ecdc4; text-decoration: none;">Code & Tutorials Here</a></strong></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="sidebar">
+            <div class="section">
+                <h3>📹 Camera Feed</h3>
+                <div class="status-grid">
+                    <div class="status-item">
+                        <span>Camera</span>
+                        <div id="camera-status" class="status-dot"></div>
+                    </div>
+                    <div class="status-item">
+                        <span>Hands</span>
+                        <div id="hands-status" class="status-dot"></div>
+                    </div>
+                    <div class="status-item">
+                        <span>Audio</span>
+                        <div id="audio-status" class="status-dot"></div>
+                    </div>
+                    <div class="status-item">
+                        <span>Drums</span>
+                        <div id="drums-status" class="status-dot"></div>
+                    </div>
+                </div>
+                
+                <div class="camera-container" style="position: relative;">
+                    <video id="input_video" autoplay muted playsinline></video>
+                    <canvas id="output_canvas"></canvas>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h3>🎛️ Audio Controls</h3>
+                <button id="toggle-audio">Enable Audio</button>
+                <button id="toggle-drums">Enable Drums</button>
+                
+                <div class="audio-display">
+                    <div class="display-row">
+                        <span class="display-label">Volume:</span>
+                        <span id="volume-display" class="display-value">0.00</span>
+                    </div>
+                    <div class="display-row">
+                        <span class="display-label">Frequency:</span>
+                        <span id="frequency-display" class="display-value">261.63 Hz</span>
+                    </div>
+                    <div class="display-row">
+                        <span class="display-label">Playing:</span>
+                        <span id="playing-status" class="display-value">No</span>
+                    </div>
+                </div>
+                
+                <div class="beat-indicators">
+                    <div class="beat-indicator" data-drum="kick">
+                        🦵 KICK
+                    </div>
+                    <div class="beat-indicator" data-drum="snare">
+                        🥁 SNARE
+                    </div>
+                    <div class="beat-indicator" data-drum="hihat">
+                        🎶 HI-HAT
+                    </div>
+                    <div class="beat-indicator" data-drum="clap">
+                        👏 CLAP
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h3>🎨 Visualization</h3>
+                <div class="viz-grid">
+                    <button class="viz-mode active" data-mode="waveform">Waveform</button>
+                    <button class="viz-mode" data-mode="particles">Particles</button>
+                    <button class="viz-mode" data-mode="spectrum">Spectrum</button>
+                    <button class="viz-mode" data-mode="gesture">Gesture</button>
+                </div>
+                
+                <div class="range-control">
+                    <label>Sensitivity:</label>
+                    <input type="range" id="sensitivity" min="0.01" max="0.2" value="0.05" step="0.01">
+                    <span class="range-value" id="sensitivity-value">0.05</span>
+                </div>
+                
+                <div class="range-control">
+                    <label>Waveform Scale:</label>
+                    <input type="range" id="wave-scale" min="0.5" max="3.0" value="1.0" step="0.1">
+                    <span class="range-value" id="wave-scale-value">1.0</span>
+                </div>
+            </div>
+            
+            <div class="instructions">
+                <h4 style="margin-top: 0;">🎯 How to Control</h4>
+                <p><strong>Audio Synthesis:</strong></p>
+                <div class="gesture-tips">
+                    <div class="gesture-tip">
+                        <span class="gesture-emoji">⬆️⬇️</span>
+                        <span>Move hand up/down for volume</span>
+                    </div>
+                    <div class="gesture-tip">
+                        <span class="gesture-emoji">✋</span>
+                        <span>Open/close hand for pitch</span>
+                    </div>
+                </div>
+                
+                <p><strong>Drum Triggers:</strong></p>
+                <div class="gesture-tips">
+                    <div class="gesture-tip">
+                        <span class="gesture-emoji">⬇️</span>
+                        <span>Fast downward = Kick</span>
+                    </div>
+                    <div class="gesture-tip">
+                        <span class="gesture-emoji">⬆️</span>
+                        <span>Fast upward = Snare</span>
+                    </div>
+                    <div class="gesture-tip">
+                        <span class="gesture-emoji">↔️</span>
+                        <span>Horizontal closed = Hi-hat</span>
+                    </div>
+                    <div class="gesture-tip">
+                        <span class="gesture-emoji">👋</span>
+                        <span>Horizontal open = Clap</span>
+                    </div>
+                </div>
+                
+                <p style="margin-bottom: 0;"><strong>The 3D waveform reacts to your volume, pitch, and drum beats in real-time!</strong></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/mediapipe-handler.js"></script>
+    <script src="js/three-visualizer.js"></script>
+    <script>
+        let mediaPipeHandler;
+        let visualizer;
+        let isStarted = false;
+        let statusUpdateInterval;
+        let lastBeatTime = {};
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            setupInterface();
+        });
+        
+        function setupInterface() {
+            setupMainControls();
+            setupVisualizationControls();
+            setupAudioControls();
+            setupRangeControls();
+            
+            console.log('3D Audio-Visual Hand Controller interface ready');
+        }
+        
+        function setupMainControls() {
+            document.getElementById('toggle-all').addEventListener('click', () => {
+                if (!isStarted) {
+                    startExperience();
+                } else {
+                    stopExperience();
+                }
+            });
+            
+            document.getElementById('toggle-viz').addEventListener('click', () => {
+                if (visualizer) {
+                    visualizer.isActive = !visualizer.isActive;
+                    if (visualizer.isActive) {
+                        visualizer.animate();
+                        document.getElementById('toggle-viz').textContent = 'Pause Visualization';
+                    } else {
+                        document.getElementById('toggle-viz').textContent = 'Resume Visualization';
+                    }
+                }
+            });
+        }
+        
+        async function startExperience() {
+            try {
+                // Initialize Three.js visualizer first
+                visualizer = new ThreeVisualizer('three-canvas');
+                
+                // Initialize MediaPipe handler
+                mediaPipeHandler = new MediaPipeHandler();
+                
+                // Connect them together
+                visualizer.setMediaPipeHandler(mediaPipeHandler);
+                
+                // Hook into drum triggers for beat visualization
+                const originalTriggerDrum = mediaPipeHandler.triggerDrum.bind(mediaPipeHandler);
+                mediaPipeHandler.triggerDrum = function(drumType, velocity) {
+                    originalTriggerDrum(drumType, velocity);
+                    
+                    // Trigger visualization
+                    visualizer.triggerBeat(drumType, velocity);
+                    
+                    // Update UI
+                    showBeatIndicator(drumType);
+                    updateBeatInfo(drumType, velocity);
+                };
+                
+                // Start status monitoring
+                startStatusMonitoring();
+                
+                isStarted = true;
+                document.getElementById('toggle-all').textContent = 'Stop Experience';
+                document.getElementById('toggle-all').classList.add('active');
+                
+                console.log('3D Audio-Visual experience started!');
+                
+            } catch (error) {
+                console.error('Error starting experience:', error);
+                alert('Failed to start experience. Please check camera permissions.');
+            }
+        }
+        
+        function stopExperience() {
+            if (mediaPipeHandler) {
+                mediaPipeHandler.stop();
+            }
+            
+            if (visualizer) {
+                visualizer.destroy();
+            }
+            
+            if (statusUpdateInterval) {
+                clearInterval(statusUpdateInterval);
+            }
+            
+            isStarted = false;
+            document.getElementById('toggle-all').textContent = 'Start Experience';
+            document.getElementById('toggle-all').classList.remove('active');
+            
+            console.log('3D Audio-Visual experience stopped');
+        }
+        
+        function setupVisualizationControls() {
+            document.querySelectorAll('.viz-mode').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Remove active class from all buttons
+                    document.querySelectorAll('.viz-mode').forEach(b => b.classList.remove('active'));
+                    
+                    // Add active class to clicked button
+                    btn.classList.add('active');
+                    
+                    // Set visualization mode
+                    const mode = btn.dataset.mode;
+                    if (visualizer) {
+                        visualizer.setVisualizationMode(mode);
+                        document.getElementById('current-mode').textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
+                    }
+                });
+            });
+        }
+        
+        function setupAudioControls() {
+            document.getElementById('toggle-audio').addEventListener('click', () => {
+                if (mediaPipeHandler) {
+                    mediaPipeHandler.toggleAudio();
+                    updateAudioToggleButton();
+                }
+            });
+            
+            document.getElementById('toggle-drums').addEventListener('click', () => {
+                if (mediaPipeHandler) {
+                    mediaPipeHandler.toggleDrums();
+                    updateDrumToggleButton();
+                }
+            });
+        }
+        
+        function setupRangeControls() {
+            // Sensitivity control
+            const sensitivitySlider = document.getElementById('sensitivity');
+            const sensitivityValue = document.getElementById('sensitivity-value');
+            
+            sensitivitySlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                sensitivityValue.textContent = value.toFixed(2);
+                if (mediaPipeHandler) {
+                    mediaPipeHandler.setDrumSensitivity(value);
+                }
+            });
+            
+            // Waveform scale control
+            const waveScaleSlider = document.getElementById('wave-scale');
+            const waveScaleValue = document.getElementById('wave-scale-value');
+            
+            waveScaleSlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                waveScaleValue.textContent = value.toFixed(1);
+                // This could be implemented to scale the waveform amplitude
+            });
+        }
+        
+        function startStatusMonitoring() {
+            statusUpdateInterval = setInterval(() => {
+                updateStatusDisplay();
+                updateVisualizationInfo();
+            }, 100);
+        }
+        
+        function updateStatusDisplay() {
+            if (!mediaPipeHandler) return;
+            
+            const audioStatus = mediaPipeHandler.getAudioStatus();
+            const drumStatus = mediaPipeHandler.getDrumStatus();
+            const handsInfo = mediaPipeHandler.getHandsInfo();
+            
+            // Update status dots
+            updateStatusDot('camera-status', true); // Assume camera is active
+            updateStatusDot('hands-status', handsInfo && handsInfo.length > 0);
+            updateStatusDot('audio-status', audioStatus.audioEnabled);
+            updateStatusDot('drums-status', drumStatus.enabled);
+            
+            // Update audio display
+            const audioValues = mediaPipeHandler.getAudioControlValues();
+            document.getElementById('volume-display').textContent = audioValues.volume.toFixed(2);
+            document.getElementById('frequency-display').textContent = audioValues.frequency.toFixed(2) + ' Hz';
+            document.getElementById('playing-status').textContent = audioStatus.isPlaying ? 'Yes' : 'No';
+        }
+        
+        function updateVisualizationInfo() {
+            if (!visualizer) return;
+            
+            const stats = visualizer.getVisualizationStats();
+            const audioValues = mediaPipeHandler ? mediaPipeHandler.getAudioControlValues() : { volume: 0, pitch: 'C4', frequency: 261.63 };
+            
+            document.getElementById('volume-info').textContent = audioValues.volume.toFixed(2);
+            document.getElementById('pitch-info').textContent = audioValues.pitch;
+            document.getElementById('frequency-info').textContent = audioValues.frequency.toFixed(2) + ' Hz';
+            document.getElementById('particle-info').textContent = stats.particleCount;
+            
+            // Update visualization with current audio values
+            if (mediaPipeHandler) {
+                visualizer.updateAudioValues(audioValues.volume, audioValues.frequency);
+            }
+        }
+        
+        function updateStatusDot(elementId, isActive) {
+            const dot = document.getElementById(elementId);
+            if (isActive) {
+                dot.classList.add('active');
+            } else {
+                dot.classList.remove('active');
+            }
+        }
+        
+        function updateAudioToggleButton() {
+            const btn = document.getElementById('toggle-audio');
+            const audioStatus = mediaPipeHandler.getAudioStatus();
+            
+            if (audioStatus.audioEnabled) {
+                btn.textContent = 'Disable Audio';
+                btn.classList.add('active');
+            } else {
+                btn.textContent = 'Enable Audio';
+                btn.classList.remove('active');
+            }
+        }
+        
+        function updateDrumToggleButton() {
+            const btn = document.getElementById('toggle-drums');
+            const drumStatus = mediaPipeHandler.getDrumStatus();
+            
+            if (drumStatus.enabled) {
+                btn.textContent = 'Disable Drums';
+                btn.classList.add('active');
+            } else {
+                btn.textContent = 'Enable Drums';
+                btn.classList.remove('active');
+            }
+        }
+        
+        function showBeatIndicator(drumType) {
+            const indicator = document.querySelector(`.beat-indicator[data-drum="${drumType}"]`);
+            if (indicator) {
+                indicator.classList.add('active');
+                lastBeatTime[drumType] = Date.now();
+                
+                setTimeout(() => {
+                    indicator.classList.remove('active');
+                }, 300);
+            }
+        }
+        
+        function updateBeatInfo(drumType, velocity) {
+            document.getElementById('beat-info').textContent = 
+                `${drumType.toUpperCase()} (${velocity.toFixed(2)})`;
+            
+            setTimeout(() => {
+                document.getElementById('beat-info').textContent = 'None';
+            }, 1000);
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (event) => {
+            switch (event.code) {
+                case 'Space':
+                    event.preventDefault();
+                    if (!isStarted) {
+                        startExperience();
+                    } else if (visualizer) {
+                        visualizer.isActive = !visualizer.isActive;
+                        if (visualizer.isActive) visualizer.animate();
+                    }
+                    break;
+                case 'KeyA':
+                    if (mediaPipeHandler) {
+                        mediaPipeHandler.toggleAudio();
+                        updateAudioToggleButton();
+                    }
+                    break;
+                case 'KeyD':
+                    if (mediaPipeHandler) {
+                        mediaPipeHandler.toggleDrums();
+                        updateDrumToggleButton();
+                    }
+                    break;
+                case 'Digit1':
+                    document.querySelector('[data-mode="waveform"]').click();
+                    break;
+                case 'Digit2':
+                    document.querySelector('[data-mode="particles"]').click();
+                    break;
+                case 'Digit3':
+                    document.querySelector('[data-mode="spectrum"]').click();
+                    break;
+                case 'Digit4':
+                    document.querySelector('[data-mode="gesture"]').click();
+                    break;
+            }
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (visualizer && visualizer.renderer) {
+                const canvas = document.getElementById('three-canvas');
+                visualizer.camera.aspect = canvas.clientWidth / canvas.clientHeight;
+                visualizer.camera.updateProjectionMatrix();
+                visualizer.renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+            }
+        });
+        
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            if (isStarted) {
+                stopExperience();
+            }
+        });
+        
+        console.log('3D Audio-Visual Hand Controller ready!');
+        console.log('Keyboard shortcuts: Space=Start/Pause, A=Audio, D=Drums, 1-4=Viz modes');
+    </script>
+</body>
+</html>

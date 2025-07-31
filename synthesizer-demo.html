@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hand-Controlled Audio Synthesizer</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .subtitle {
+            text-align: center;
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .video-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        #input_video {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+            transform: scaleX(-1);
+        }
+        #output_canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+            transform: scaleX(-1);
+        }
+        .controls-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .control-group {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .control-group:last-child {
+            border-bottom: none;
+        }
+        .control-group h3 {
+            margin-bottom: 15px;
+            color: #00ff88;
+        }
+        .audio-display {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            text-align: center;
+        }
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 8px 0;
+        }
+        .status-label {
+            font-weight: bold;
+        }
+        .status-value {
+            color: #00ff88;
+            font-family: monospace;
+        }
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff4444;
+            margin-right: 10px;
+            transition: background-color 0.3s;
+        }
+        .status-dot.active {
+            background: #44ff44;
+        }
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            margin: 5px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        button:active {
+            transform: scale(0.95);
+        }
+        button.active {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+        }
+        button.danger {
+            background: linear-gradient(45deg, #ff4444, #cc3333);
+        }
+        .wave-selector {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .wave-btn {
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+        .instructions {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+        }
+        .instruction-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .instruction-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+        .emoji {
+            font-size: 2rem;
+            margin-right: 15px;
+            min-width: 50px;
+        }
+        .range-control {
+            margin: 10px 0;
+        }
+        .range-control label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .range-control input {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+        .range-value {
+            color: #00ff88;
+            font-family: monospace;
+        }
+        @media (max-width: 1000px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <!-- MediaPipe -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Hand-Controlled Audio Synthesizer</h1>
+        <p class="subtitle">Use your hands to control pitch and volume in real-time!</p>
+        
+        <div class="main-grid">
+            <div class="video-section">
+                <h3>📹 Hand Tracking</h3>
+                <div class="status-row">
+                    <div style="display: flex; align-items: center;">
+                        <div id="camera-status" class="status-dot"></div>
+                        <span>Camera Status</span>
+                    </div>
+                    <div style="display: flex; align-items: center;">
+                        <div id="audio-status" class="status-dot"></div>
+                        <span>Audio Status</span>
+                    </div>
+                </div>
+                
+                <div class="video-container">
+                    <video id="input_video" autoplay muted playsinline></video>
+                    <canvas id="output_canvas"></canvas>
+                </div>
+                
+                <div class="audio-display">
+                    <div class="status-row">
+                        <span class="status-label">Volume:</span>
+                        <span id="volume-display" class="status-value">0.00</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Pitch:</span>
+                        <span id="pitch-display" class="status-value">C4</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Frequency:</span>
+                        <span id="frequency-display" class="status-value">261.63 Hz</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Playing:</span>
+                        <span id="playing-status" class="status-value">No</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="controls-section">
+                <div class="control-group">
+                    <h3>🎮 Audio Controls</h3>
+                    <button id="toggle-audio" class="active">Enable Audio</button>
+                    <button id="mute-audio">Mute</button>
+                    <button id="reset-audio">Reset</button>
+                </div>
+                
+                <div class="control-group">
+                    <h3>🌊 Waveform Type</h3>
+                    <div class="wave-selector">
+                        <button class="wave-btn active" data-wave="sine">Sine</button>
+                        <button class="wave-btn" data-wave="square">Square</button>
+                        <button class="wave-btn" data-wave="sawtooth">Sawtooth</button>
+                        <button class="wave-btn" data-wave="triangle">Triangle</button>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>🎛️ Audio Settings</h3>
+                    <div class="range-control">
+                        <label>Smoothing Factor:</label>
+                        <input type="range" id="smoothing" min="0.01" max="1" value="0.1" step="0.01">
+                        <span class="range-value" id="smoothing-value">0.10</span>
+                    </div>
+                    <div class="range-control">
+                        <label>Volume Scaling:</label>
+                        <input type="range" id="volume-scale" min="0.1" max="1.0" value="0.3" step="0.1">
+                        <span class="range-value" id="volume-scale-value">0.3</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3>📷 Camera Controls</h3>
+                    <button id="start-camera">Start Camera</button>
+                    <button id="stop-camera" class="danger">Stop Camera</button>
+                    <button id="restart-camera">Restart Camera</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h3>📋 How to Use</h3>
+            <div class="instruction-grid">
+                <div class="instruction-item">
+                    <span class="emoji">🤚</span>
+                    <div>
+                        <strong>Volume Control:</strong> Move your right hand up and down. 
+                        Higher position creates louder volume.
+                    </div>
+                </div>
+                <div class="instruction-item">
+                    <span class="emoji">✋</span>
+                    <div>
+                        <strong>Pitch Control:</strong> Open and close your hand. 
+                        More spread fingers create higher pitch.
+                    </div>
+                </div>
+                <div class="instruction-item">
+                    <span class="emoji">🎵</span>
+                    <div>
+                        <strong>Audio Generation:</strong> Sound is generated when hands are detected 
+                        and volume is above threshold.
+                    </div>
+                </div>
+                <div class="instruction-item">
+                    <span class="emoji">🎛️</span>
+                    <div>
+                        <strong>Customization:</strong> Change waveform type and adjust 
+                        smoothing for different sound characteristics.
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="landmark-info" style="display: none;"></div>
+    </div>
+
+    <script src="js/mediapipe-handler.js"></script>
+    <script>
+        let mediaPipeHandler;
+        let statusUpdateInterval;
+        let volumeScale = 0.3;
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeSynthesizer();
+        });
+        
+        function initializeSynthesizer() {
+            // Initialize MediaPipe with audio
+            mediaPipeHandler = new MediaPipeHandler();
+            
+            // Setup controls
+            setupAudioControls();
+            setupWaveformControls();
+            setupRangeControls();
+            setupCameraControls();
+            
+            // Start status monitoring
+            startStatusMonitoring();
+            
+            console.log('Hand-controlled synthesizer initialized');
+        }
+        
+        function setupAudioControls() {
+            document.getElementById('toggle-audio').addEventListener('click', () => {
+                mediaPipeHandler.toggleAudio();
+                updateAudioToggleButton();
+            });
+            
+            document.getElementById('mute-audio').addEventListener('click', () => {
+                mediaPipeHandler.disableAudio();
+                updateAudioToggleButton();
+            });
+            
+            document.getElementById('reset-audio').addEventListener('click', () => {
+                mediaPipeHandler.stopAudioSynthesis();
+                mediaPipeHandler.setSmoothingFactor(0.1);
+                document.getElementById('smoothing').value = 0.1;
+                document.getElementById('smoothing-value').textContent = '0.10';
+            });
+        }
+        
+        function setupWaveformControls() {
+            document.querySelectorAll('.wave-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Remove active class from all buttons
+                    document.querySelectorAll('.wave-btn').forEach(b => b.classList.remove('active'));
+                    
+                    // Add active class to clicked button
+                    btn.classList.add('active');
+                    
+                    // Set oscillator type
+                    const waveType = btn.dataset.wave;
+                    mediaPipeHandler.setOscillatorType(waveType);
+                });
+            });
+        }
+        
+        function setupRangeControls() {
+            // Smoothing factor control
+            const smoothingSlider = document.getElementById('smoothing');
+            const smoothingValue = document.getElementById('smoothing-value');
+            
+            smoothingSlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                smoothingValue.textContent = value.toFixed(2);
+                mediaPipeHandler.setSmoothingFactor(value);
+            });
+            
+            // Volume scaling control
+            const volumeSlider = document.getElementById('volume-scale');
+            const volumeValue = document.getElementById('volume-scale-value');
+            
+            volumeSlider.addEventListener('input', (e) => {
+                volumeScale = parseFloat(e.target.value);
+                volumeValue.textContent = volumeScale.toFixed(1);
+            });
+        }
+        
+        function setupCameraControls() {
+            document.getElementById('start-camera').addEventListener('click', () => {
+                mediaPipeHandler.initCamera();
+            });
+            
+            document.getElementById('stop-camera').addEventListener('click', () => {
+                mediaPipeHandler.stop();
+            });
+            
+            document.getElementById('restart-camera').addEventListener('click', () => {
+                mediaPipeHandler.restart();
+            });
+        }
+        
+        function startStatusMonitoring() {
+            statusUpdateInterval = setInterval(() => {
+                updateStatusDisplay();
+            }, 100);
+        }
+        
+        function updateStatusDisplay() {
+            if (!mediaPipeHandler) return;
+            
+            const audioValues = mediaPipeHandler.getAudioControlValues();
+            const audioStatus = mediaPipeHandler.getAudioStatus();
+            
+            // Update audio values display
+            document.getElementById('volume-display').textContent = audioValues.volume.toFixed(2);
+            document.getElementById('pitch-display').textContent = audioValues.pitch;
+            document.getElementById('frequency-display').textContent = audioValues.frequency.toFixed(2) + ' Hz';
+            document.getElementById('playing-status').textContent = audioStatus.isPlaying ? 'Yes' : 'No';
+            
+            // Update status dots
+            const audioStatusDot = document.getElementById('audio-status');
+            if (audioStatus.audioEnabled) {
+                audioStatusDot.classList.add('active');
+            } else {
+                audioStatusDot.classList.remove('active');
+            }
+        }
+        
+        function updateAudioToggleButton() {
+            const btn = document.getElementById('toggle-audio');
+            const audioStatus = mediaPipeHandler.getAudioStatus();
+            
+            if (audioStatus.audioEnabled) {
+                btn.textContent = 'Disable Audio';
+                btn.classList.add('active');
+            } else {
+                btn.textContent = 'Enable Audio';
+                btn.classList.remove('active');
+            }
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (event) => {
+            switch (event.code) {
+                case 'Space':
+                    event.preventDefault();
+                    mediaPipeHandler.toggleAudio();
+                    updateAudioToggleButton();
+                    break;
+                case 'KeyM':
+                    event.preventDefault();
+                    mediaPipeHandler.disableAudio();
+                    updateAudioToggleButton();
+                    break;
+                case 'KeyR':
+                    event.preventDefault();
+                    mediaPipeHandler.restart();
+                    break;
+                case 'Digit1':
+                    mediaPipeHandler.setOscillatorType('sine');
+                    updateWaveformButtons('sine');
+                    break;
+                case 'Digit2':
+                    mediaPipeHandler.setOscillatorType('square');
+                    updateWaveformButtons('square');
+                    break;
+                case 'Digit3':
+                    mediaPipeHandler.setOscillatorType('sawtooth');
+                    updateWaveformButtons('sawtooth');
+                    break;
+                case 'Digit4':
+                    mediaPipeHandler.setOscillatorType('triangle');
+                    updateWaveformButtons('triangle');
+                    break;
+            }
+        });
+        
+        function updateWaveformButtons(activeWave) {
+            document.querySelectorAll('.wave-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.wave === activeWave) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+        
+        // Log status for debugging
+        setInterval(() => {
+            if (mediaPipeHandler) {
+                const audioStatus = mediaPipeHandler.getAudioStatus();
+                console.log('Audio Status:', audioStatus);
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
