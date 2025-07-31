@@ -51,6 +51,9 @@ class MediaPipeHandler {
         this.lastHandPositions = {};
         this.handVelocities = {};
         
+        // Check if MediaPipe drawing utilities are available
+        this.hasDrawingUtils = typeof drawConnectors !== 'undefined' && typeof drawLandmarks !== 'undefined' && typeof HAND_CONNECTIONS !== 'undefined';
+        
         this.init();
     }
 
@@ -640,19 +643,31 @@ class MediaPipeHandler {
                 
                 // Draw hand connections (bones) if enabled
                 if (this.drawingOptions.showConnections) {
-                    drawConnectors(this.canvasCtx, scaledLandmarks, HAND_CONNECTIONS, {
-                        color: connectionColor,
-                        lineWidth: this.getResponsiveLineWidth(3)
-                    });
+                    if (this.hasDrawingUtils) {
+                        // Use MediaPipe drawing utilities if available
+                        drawConnectors(this.canvasCtx, scaledLandmarks, HAND_CONNECTIONS, {
+                            color: connectionColor,
+                            lineWidth: this.getResponsiveLineWidth(3)
+                        });
+                    } else {
+                        // Use custom drawing function as fallback
+                        this.drawHandConnections(scaledLandmarks, connectionColor);
+                    }
                 }
                 
                 // Draw landmarks (joints) if enabled
                 if (this.drawingOptions.showLandmarks) {
-                    drawLandmarks(this.canvasCtx, scaledLandmarks, {
-                        color: landmarkColor,
-                        lineWidth: this.getResponsiveLineWidth(2),
-                        radius: this.getResponsiveRadius(4)
-                    });
+                    if (this.hasDrawingUtils) {
+                        // Use MediaPipe drawing utilities if available
+                        drawLandmarks(this.canvasCtx, scaledLandmarks, {
+                            color: landmarkColor,
+                            lineWidth: this.getResponsiveLineWidth(2),
+                            radius: this.getResponsiveRadius(4)
+                        });
+                    } else {
+                        // Use custom drawing function as fallback
+                        this.drawHandLandmarks(scaledLandmarks, landmarkColor);
+                    }
                 }
                 
                 // Draw hand label if enabled
@@ -828,6 +843,69 @@ class MediaPipeHandler {
         } else {
             statusDot.classList.remove('active');
         }
+    }
+
+    // Custom drawing functions to replace MediaPipe drawing utilities
+    drawHandConnections(landmarks, color) {
+        if (!landmarks || landmarks.length < 21) return;
+        
+        // Define hand connection pairs (bone structure)
+        const connections = [
+            // Thumb
+            [0, 1], [1, 2], [2, 3], [3, 4],
+            // Index finger
+            [0, 5], [5, 6], [6, 7], [7, 8],
+            // Middle finger
+            [0, 9], [9, 10], [10, 11], [11, 12],
+            // Ring finger
+            [0, 13], [13, 14], [14, 15], [15, 16],
+            // Pinky
+            [0, 17], [17, 18], [18, 19], [19, 20],
+            // Palm connections
+            [5, 9], [9, 13], [13, 17]
+        ];
+        
+        this.canvasCtx.strokeStyle = color;
+        this.canvasCtx.lineWidth = this.getResponsiveLineWidth(3);
+        this.canvasCtx.lineCap = 'round';
+        
+        connections.forEach(([startIdx, endIdx]) => {
+            if (landmarks[startIdx] && landmarks[endIdx]) {
+                const start = landmarks[startIdx];
+                const end = landmarks[endIdx];
+                
+                this.canvasCtx.beginPath();
+                this.canvasCtx.moveTo(
+                    start.x * this.canvasElement.width, 
+                    start.y * this.canvasElement.height
+                );
+                this.canvasCtx.lineTo(
+                    end.x * this.canvasElement.width, 
+                    end.y * this.canvasElement.height
+                );
+                this.canvasCtx.stroke();
+            }
+        });
+    }
+
+    drawHandLandmarks(landmarks, color) {
+        if (!landmarks) return;
+        
+        this.canvasCtx.fillStyle = color;
+        this.canvasCtx.strokeStyle = '#FFFFFF';
+        this.canvasCtx.lineWidth = this.getResponsiveLineWidth(1);
+        
+        const radius = this.getResponsiveRadius(4);
+        
+        landmarks.forEach((landmark, index) => {
+            const x = landmark.x * this.canvasElement.width;
+            const y = landmark.y * this.canvasElement.height;
+            
+            this.canvasCtx.beginPath();
+            this.canvasCtx.arc(x, y, radius, 0, 2 * Math.PI);
+            this.canvasCtx.fill();
+            this.canvasCtx.stroke();
+        });
     }
 
     setOnResultsCallback(callback) {
