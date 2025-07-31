@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Music Control with Hand Gestures</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- MediaPipe -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <style>
+        #debug-console {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 200px;
+            background: rgba(0, 0, 0, 0.9);
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-y: auto;
+            z-index: 10000;
+            padding: 10px;
+            border-top: 2px solid #00ff00;
+        }
+        
+        .debug-message {
+            margin: 2px 0;
+            word-wrap: break-word;
+        }
+        
+        .debug-message.error {
+            color: #ff6b6b;
+        }
+        
+        .debug-message.success {
+            color: #51cf66;
+        }
+        
+        .debug-message.warning {
+            color: #ffd43b;
+        }
+        
+        #toggle-debug {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            z-index: 10001;
+            background: #00ff00;
+            color: black;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🐛 Debug - Music Control with Hand Gestures</h1>
+            <p>Use your hand gestures to control music playback and visualizations</p>
+        </header>
+
+        <main>
+            <!-- Camera Feed Section -->
+            <section class="camera-section">
+                <div class="video-container">
+                    <video id="input_video" autoplay muted playsinline></video>
+                    <canvas id="output_canvas"></canvas>
+                    <div class="status-indicator">
+                        <div id="camera-status" class="status-dot"></div>
+                        <span>Camera Status</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Music Player Section -->
+            <section class="music-player-section">
+                <div class="player-container">
+                    <div class="track-info">
+                        <h3 id="track-title">No track selected</h3>
+                        <p id="track-artist">Select a music file to begin</p>
+                    </div>
+                    
+                    <div class="player-controls">
+                        <button id="play-pause-btn" class="control-btn">
+                            <span class="play-icon">▶</span>
+                            <span class="pause-icon" style="display: none;">⏸</span>
+                        </button>
+                        <button id="prev-btn" class="control-btn">⏮</button>
+                        <button id="next-btn" class="control-btn">⏭</button>
+                    </div>
+                    
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                        <div class="time-display">
+                            <span class="current-time">0:00</span>
+                            <span class="total-time">0:00</span>
+                        </div>
+                    </div>
+                    
+                    <div class="volume-control">
+                        <span class="volume-icon">🔊</span>
+                        <input type="range" id="volume-slider" class="volume-slider" min="0" max="100" value="50">
+                    </div>
+                    
+                    <div class="file-input-container">
+                        <input type="file" id="music-file-input" accept="audio/*" multiple>
+                        <label for="music-file-input" class="file-input-label">Choose Music Files</label>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Visualization Section -->
+            <section class="visualization-section">
+                <div class="viz-container">
+                    <canvas id="three-canvas"></canvas>
+                    <div class="viz-controls">
+                        <button id="toggle-viz" class="control-btn">Toggle Visualization</button>
+                        <select id="viz-mode" class="viz-select">
+                            <option value="particles">Particles</option>
+                            <option value="waveform">Waveform</option>
+                            <option value="spectrum">Spectrum</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Gesture Recognition Info -->
+            <section class="gesture-info-section">
+                <div class="gesture-info">
+                    <h3>Gesture Controls</h3>
+                    <div class="gesture-grid">
+                        <div class="gesture-item">
+                            <div class="gesture-icon">👋</div>
+                            <div class="gesture-desc">
+                                <strong>Open Palm</strong>
+                                <p>Play/Pause</p>
+                            </div>
+                        </div>
+                        <div class="gesture-item">
+                            <div class="gesture-icon">✊</div>
+                            <div class="gesture-desc">
+                                <strong>Closed Fist</strong>
+                                <p>Stop</p>
+                            </div>
+                        </div>
+                        <div class="gesture-item">
+                            <div class="gesture-icon">👍</div>
+                            <div class="gesture-desc">
+                                <strong>Thumbs Up</strong>
+                                <p>Volume Up</p>
+                            </div>
+                        </div>
+                        <div class="gesture-item">
+                            <div class="gesture-icon">👎</div>
+                            <div class="gesture-desc">
+                                <strong>Thumbs Down</strong>
+                                <p>Volume Down</p>
+                            </div>
+                        </div>
+                        <div class="gesture-item">
+                            <div class="gesture-icon">👈</div>
+                            <div class="gesture-desc">
+                                <strong>Point Left</strong>
+                                <p>Previous Track</p>
+                            </div>
+                        </div>
+                        <div class="gesture-item">
+                            <div class="gesture-icon">👉</div>
+                            <div class="gesture-desc">
+                                <strong>Point Right</strong>
+                                <p>Next Track</p>
+                            </div>
+                        </div>
+                        <div class="gesture-item">
+                            <div class="gesture-icon">✌️</div>
+                            <div class="gesture-desc">
+                                <strong>Peace Sign</strong>
+                                <p>Toggle Visualization</p>
+                            </div>
+                        </div>
+                        <div class="gesture-item">
+                            <div class="gesture-icon">👌</div>
+                            <div class="gesture-desc">
+                                <strong>OK Sign</strong>
+                                <p>Confirm Action</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="landmark-info">
+                    <h3>Hand Tracking Info</h3>
+                    <div id="landmark-info">
+                        <p>No hands detected</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Debug Console -->
+    <div id="debug-console">
+        <div id="debug-messages"></div>
+    </div>
+    
+    <button id="toggle-debug">Hide Debug</button>
+
+    <!-- JavaScript Files -->
+    <script>
+        // Debug console setup
+        const debugConsole = document.getElementById('debug-console');
+        const debugMessages = document.getElementById('debug-messages');
+        const toggleDebugBtn = document.getElementById('toggle-debug');
+        
+        let debugVisible = true;
+        
+        function addDebugMessage(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const messageEl = document.createElement('div');
+            messageEl.className = `debug-message ${type}`;
+            messageEl.innerHTML = `[${timestamp}] ${message}`;
+            debugMessages.appendChild(messageEl);
+            debugMessages.scrollTop = debugMessages.scrollHeight;
+            
+            // Limit messages to prevent memory issues
+            if (debugMessages.children.length > 100) {
+                debugMessages.removeChild(debugMessages.firstChild);
+            }
+        }
+        
+        toggleDebugBtn.addEventListener('click', () => {
+            debugVisible = !debugVisible;
+            debugConsole.style.display = debugVisible ? 'block' : 'none';
+            toggleDebugBtn.textContent = debugVisible ? 'Hide Debug' : 'Show Debug';
+        });
+        
+        // Override console methods to capture debug messages
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addDebugMessage(args.join(' '), 'info');
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addDebugMessage(args.join(' '), 'error');
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addDebugMessage(args.join(' '), 'warning');
+        };
+        
+        // Capture window errors
+        window.addEventListener('error', (event) => {
+            addDebugMessage(`ERROR: ${event.message} at ${event.filename}:${event.lineno}:${event.colno}`, 'error');
+        });
+        
+        // Capture unhandled promise rejections
+        window.addEventListener('unhandledrejection', (event) => {
+            addDebugMessage(`UNHANDLED PROMISE: ${event.reason}`, 'error');
+        });
+        
+        addDebugMessage('🐛 Debug console initialized', 'success');
+        addDebugMessage('📋 Loading JavaScript files...', 'info');
+    </script>
+    
+    <script src="js/mediapipe-handler.js"></script>
+    <script src="js/three-visualizer.js"></script>
+    <script src="js/music-player.js"></script>
+    <script src="js/gesture-recognition.js"></script>
+    <script src="js/main.js"></script>
+    
+    <script>
+        addDebugMessage('✅ All JavaScript files loaded', 'success');
+        addDebugMessage('⏳ Waiting for DOM ready...', 'info');
+    </script>
+</body>
+</html>

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Test - Hand Gesture Control</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1e1e2e;
+            color: white;
+            margin: 20px;
+            text-align: center;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 640px;
+            height: 480px;
+            margin: 20px auto;
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        #input_video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror video */
+        }
+        
+        #output_canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .status {
+            margin: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        
+        .status.success {
+            background: rgba(0, 255, 0, 0.2);
+            border: 1px solid #00ff00;
+        }
+        
+        .status.error {
+            background: rgba(255, 0, 0, 0.2);
+            border: 1px solid #ff0000;
+        }
+        
+        .status.info {
+            background: rgba(0, 0, 255, 0.2);
+            border: 1px solid #0080ff;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎥 Camera Test - Hand Gesture Control</h1>
+    <div id="status" class="status info">Initializing...</div>
+    
+    <div class="video-container">
+        <video id="input_video" autoplay muted playsinline></video>
+        <canvas id="output_canvas"></canvas>
+    </div>
+    
+    <div id="debug-info">
+        <h3>Debug Information:</h3>
+        <p id="mediastream-support">MediaStream Support: <span>Checking...</span></p>
+        <p id="mediapipe-support">MediaPipe Support: <span>Checking...</span></p>
+        <p id="camera-permissions">Camera Permissions: <span>Checking...</span></p>
+    </div>
+
+    <!-- MediaPipe Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    
+    <script>
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        function updateDebugInfo(id, message, success = true) {
+            const el = document.getElementById(id).querySelector('span');
+            el.textContent = message;
+            el.style.color = success ? '#00ff00' : '#ff0000';
+        }
+
+        async function testCamera() {
+            try {
+                updateStatus('🔍 Checking browser support...', 'info');
+                
+                // Check MediaStream support
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    updateDebugInfo('mediastream-support', 'Not supported', false);
+                    throw new Error('MediaStream not supported in this browser');
+                }
+                updateDebugInfo('mediastream-support', 'Supported', true);
+
+                // Check MediaPipe loading
+                if (typeof Camera === 'undefined' || typeof Hands === 'undefined') {
+                    updateDebugInfo('mediapipe-support', 'Libraries not loaded', false);
+                    throw new Error('MediaPipe libraries not loaded');
+                }
+                updateDebugInfo('mediapipe-support', 'Libraries loaded', true);
+
+                updateStatus('📹 Requesting camera access...', 'info');
+                
+                // Test camera permissions
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                updateDebugInfo('camera-permissions', 'Granted', true);
+                
+                // Stop the test stream
+                stream.getTracks().forEach(track => track.stop());
+                
+                updateStatus('🚀 Starting MediaPipe camera...', 'info');
+                
+                // Initialize MediaPipe
+                const videoElement = document.getElementById('input_video');
+                const canvasElement = document.getElementById('output_canvas');
+                const canvasCtx = canvasElement.getContext('2d');
+                
+                const hands = new Hands({
+                    locateFile: (file) => {
+                        return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                    }
+                });
+
+                hands.setOptions({
+                    maxNumHands: 2,
+                    modelComplexity: 1,
+                    minDetectionConfidence: 0.7,
+                    minTrackingConfidence: 0.5
+                });
+
+                hands.onResults((results) => {
+                    // Clear canvas
+                    canvasCtx.save();
+                    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                    
+                    // Mirror canvas
+                    canvasCtx.scale(-1, 1);
+                    canvasCtx.translate(-canvasElement.width, 0);
+                    
+                    // Draw hand landmarks if detected
+                    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                        updateStatus(`✅ ${results.multiHandLandmarks.length} hand(s) detected!`, 'success');
+                        
+                        for (let i = 0; i < results.multiHandLandmarks.length; i++) {
+                            const landmarks = results.multiHandLandmarks[i];
+                            const handedness = results.multiHandedness[i];
+                            
+                            // Draw landmarks
+                            landmarks.forEach((landmark, index) => {
+                                const x = landmark.x * canvasElement.width;
+                                const y = landmark.y * canvasElement.height;
+                                
+                                canvasCtx.beginPath();
+                                canvasCtx.arc(x, y, 5, 0, 2 * Math.PI);
+                                canvasCtx.fillStyle = handedness.label === 'Left' ? '#ff0000' : '#00ff00';
+                                canvasCtx.fill();
+                                canvasCtx.strokeStyle = '#ffffff';
+                                canvasCtx.stroke();
+                            });
+                        }
+                    } else {
+                        updateStatus('📷 Camera working - Show your hands!', 'info');
+                    }
+                    
+                    canvasCtx.restore();
+                });
+
+                const camera = new Camera(videoElement, {
+                    onFrame: async () => {
+                        await hands.send({ image: videoElement });
+                    },
+                    width: 640,
+                    height: 480
+                });
+
+                await camera.start();
+                
+                // Set canvas size
+                canvasElement.width = 640;
+                canvasElement.height = 480;
+                
+                updateStatus('✅ Camera initialized successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Camera test failed:', error);
+                updateStatus(`❌ Error: ${error.message}`, 'error');
+                
+                if (error.name === 'NotAllowedError') {
+                    updateDebugInfo('camera-permissions', 'Denied', false);
+                } else if (error.name === 'NotFoundError') {
+                    updateDebugInfo('camera-permissions', 'No camera found', false);
+                } else {
+                    updateDebugInfo('camera-permissions', 'Error: ' + error.message, false);
+                }
+            }
+        }
+
+        // Start test when page loads
+        window.addEventListener('load', () => {
+            setTimeout(testCamera, 1000); // Give time for MediaPipe to load
+        });
+    </script>
+</body>
+</html>

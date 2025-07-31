@@ -16,8 +16,26 @@
 <body>
     <div class="container">
         <header>
-            <h1>Music Control with Hand Gestures</h1>
-            <p>Use your hand gestures to control music playback and visualizations</p>
+            <h1>🎵 Hand Gesture Music Control</h1>
+            <p>Experience the future of music interaction - control volume, pitch, and drums with just your hands!</p>
+            <div class="header-features">
+                <div class="feature-badge">
+                    <span class="feature-icon">🫱</span>
+                    <span>Real-time Hand Tracking</span>
+                </div>
+                <div class="feature-badge">
+                    <span class="feature-icon">🎶</span>
+                    <span>Audio Synthesis</span>
+                </div>
+                <div class="feature-badge">
+                    <span class="feature-icon">🥁</span>
+                    <span>Drum Machine</span>
+                </div>
+                <div class="feature-badge">
+                    <span class="feature-icon">✨</span>
+                    <span>3D Visualization</span>
+                </div>
+            </div>
         </header>
 
         <main>
@@ -44,7 +62,7 @@
                     <div class="player-controls">
                         <button id="play-pause-btn" class="control-btn">
                             <span class="play-icon">▶</span>
-                            <span class="pause-icon" style="display: none;">⏸</span>
+                            <span class="pause-icon">⏸</span>
                         </button>
                         <button id="prev-btn" class="control-btn">⏮</button>
                         <button id="next-btn" class="control-btn">⏭</button>
@@ -146,6 +164,8 @@
     </div>
 
     <!-- JavaScript Files -->
+    <script src="js/ui-enhancements.js"></script>
+    <script src="js/demo-mode.js"></script>
     <script src="js/mediapipe-handler.js"></script>
     <script src="js/three-visualizer.js"></script>
     <script src="js/music-player.js"></script>

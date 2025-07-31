@@ -5,6 +5,8 @@
 
 class MediaPipeHandler {
     constructor() {
+        console.log('🎯 MediaPipeHandler: Starting initialization...');
+        
         this.hands = null;
         this.camera = null;
         this.videoElement = null;
@@ -54,6 +56,9 @@ class MediaPipeHandler {
         // Check if MediaPipe drawing utilities are available
         this.hasDrawingUtils = typeof drawConnectors !== 'undefined' && typeof drawLandmarks !== 'undefined' && typeof HAND_CONNECTIONS !== 'undefined';
         
+        console.log('🧰 MediaPipeHandler: Basic setup complete, starting init...');
+        
+        // Initialize immediately since DOM readiness is handled by main.js
         this.init();
     }
 
@@ -61,6 +66,15 @@ class MediaPipeHandler {
         // Get DOM elements
         this.videoElement = document.getElementById('input_video');
         this.canvasElement = document.getElementById('output_canvas');
+        
+        if (!this.videoElement || !this.canvasElement) {
+            console.error('Required DOM elements not found!');
+            console.error('Video element found:', !!this.videoElement);
+            console.error('Canvas element found:', !!this.canvasElement);
+            this.showAudioMessage('❌ Error: Camera elements not found. Please check the HTML setup.');
+            return;
+        }
+        
         this.canvasCtx = this.canvasElement.getContext('2d');
 
         // Initialize MediaPipe Hands
@@ -69,6 +83,15 @@ class MediaPipeHandler {
                 return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
             }
         });
+
+        // Check if MediaPipe dependencies are loaded
+        if (typeof Hands === 'undefined' || typeof Camera === 'undefined') {
+            console.error('MediaPipe dependencies not loaded!');
+            console.error('Hands available:', typeof Hands !== 'undefined');
+            console.error('Camera available:', typeof Camera !== 'undefined');
+            this.showAudioMessage('❌ Error: MediaPipe libraries not loaded. Please check your internet connection.');
+            return;
+        }
 
         this.hands.setOptions({
             maxNumHands: 2,
@@ -246,7 +269,9 @@ class MediaPipeHandler {
                     const scaleY = this.canvasElement.height / rect.height;
                     
                     // Get click coordinates relative to canvas display size
-                    const x = (event.clientX - rect.left) * scaleX / (this.pixelRatio || 1);
+                    // Account for mirrored canvas by flipping X coordinate
+                    const rawX = (event.clientX - rect.left) * scaleX / (this.pixelRatio || 1);
+                    const x = this.canvasElement.width / (this.pixelRatio || 1) - rawX; // Flip X for mirrored canvas
                     const y = (event.clientY - rect.top) * scaleY / (this.pixelRatio || 1);
                     
                     // Check if click is within tutorial link area
@@ -271,7 +296,9 @@ class MediaPipeHandler {
                     const scaleX = this.canvasElement.width / rect.width;
                     const scaleY = this.canvasElement.height / rect.height;
                     
-                    const x = (event.clientX - rect.left) * scaleX / (this.pixelRatio || 1);
+                    // Account for mirrored canvas by flipping X coordinate
+                    const rawX = (event.clientX - rect.left) * scaleX / (this.pixelRatio || 1);
+                    const x = this.canvasElement.width / (this.pixelRatio || 1) - rawX; // Flip X for mirrored canvas
                     const y = (event.clientY - rect.top) * scaleY / (this.pixelRatio || 1);
                     
                     if (x >= this.tutorialLinkArea.x && 
@@ -289,10 +316,10 @@ class MediaPipeHandler {
 
     setupEncouragingMessages() {
         const encouragingMessages = [
-            "🎵 Try moving your RIGHT hand up and down to control volume!",
-            "✋ Open and close your RIGHT hand to change pitch!",
+            "🎵 Move your RIGHT hand up/down to control volume!",
+            "✋ Open/close your RIGHT hand to change pitch!",
             "🥁 Use your LEFT hand for drums - try fast movements!",
-            "🚀 Combine both hands for amazing musical performances!",
+            "🚀 Natural mirror view - move right to go right!",
             "💫 The higher your right hand, the louder the music!",
             "🎶 Experiment with different hand positions and speeds!",
             "🔥 You're creating music with your hands - keep going!",
@@ -479,9 +506,19 @@ class MediaPipeHandler {
 
     async initCamera() {
         try {
+            console.log('🎥 Starting camera initialization...');
+            
+            // Check if required elements exist
+            if (!this.videoElement) {
+                throw new Error('Video element not found');
+            }
+            
             // Detect device type and set optimal camera settings
             const isMobile = this.isMobileDevice();
             const optimalSettings = this.getOptimalCameraSettings(isMobile);
+            
+            console.log(`📱 Device type: ${isMobile ? 'Mobile' : 'Desktop'}`);
+            console.log(`⚙️ Camera settings: ${optimalSettings.width}x${optimalSettings.height}`);
             
             this.camera = new Camera(this.videoElement, {
                 onFrame: async () => {
@@ -492,13 +529,32 @@ class MediaPipeHandler {
                 facingMode: optimalSettings.facingMode
             });
 
+            console.log('🚀 Starting camera...');
             await this.camera.start();
+            
+            console.log('📐 Setting up responsive canvas...');
             this.setupResponsiveCanvas();
+            
             this.updateCameraStatus(true);
-            console.log(`Camera initialized successfully - ${isMobile ? 'Mobile' : 'Desktop'} mode (${optimalSettings.width}x${optimalSettings.height})`);
+            console.log(`✅ Camera initialized successfully - ${isMobile ? 'Mobile' : 'Desktop'} mode (${optimalSettings.width}x${optimalSettings.height})`);
+            
+            // Show success message
+            this.showAudioMessage('📹 Camera ready! Position your hands in front of the camera.');
+            
         } catch (error) {
-            console.error('Error initializing camera:', error);
+            console.error('❌ Error initializing camera:', error);
             this.updateCameraStatus(false);
+            
+            // Show user-friendly error messages
+            if (error.name === 'NotAllowedError') {
+                this.showAudioMessage('🚫 Camera access denied. Please allow camera permissions and refresh.');
+            } else if (error.name === 'NotFoundError') {
+                this.showAudioMessage('📹 No camera found. Please connect a camera and refresh.');
+            } else if (error.name === 'NotReadableError') {
+                this.showAudioMessage('🔧 Camera is busy. Please close other apps using the camera and refresh.');
+            } else {
+                this.showAudioMessage('❌ Camera error: ' + error.message + '. Please refresh and try again.');
+            }
         }
     }
 
@@ -611,6 +667,17 @@ class MediaPipeHandler {
         this.canvasCtx.save();
         this.canvasCtx.clearRect(0, 0, this.canvasElement.width, this.canvasElement.height);
         
+        // Mirror the canvas horizontally for natural interaction
+        this.canvasCtx.scale(-1, 1);
+        this.canvasCtx.translate(-this.canvasElement.width / (this.pixelRatio || 1), 0);
+        
+        // Log mirror fix status once
+        if (!this.mirrorLoggedOnce) {
+            console.log('✅ Mirror effect applied - natural hand movements enabled!');
+            console.log('✅ Hand labels corrected - right hand appears on right side!');
+            this.mirrorLoggedOnce = true;
+        }
+        
         // Update canvas size if video dimensions changed
         if (this.videoElement.videoWidth && this.videoElement.videoHeight) {
             const currentVideoWidth = this.videoElement.videoWidth;
@@ -637,7 +704,8 @@ class MediaPipeHandler {
                 const scaledLandmarks = this.scaleHandLandmarks(landmarks);
                 
                 // Choose colors based on hand (left/right)
-                const isLeftHand = handedness.label === 'Left';
+                // Note: Due to mirroring, we swap the labels for natural interaction
+                const isLeftHand = handedness.label === 'Right'; // Swapped due to mirror
                 const connectionColor = isLeftHand ? '#00FF00' : '#0080FF'; // Green for left, Blue for right
                 const landmarkColor = isLeftHand ? '#FF0000' : '#FF8000';   // Red for left, Orange for right
                 
@@ -780,13 +848,17 @@ class MediaPipeHandler {
         const x = wrist.x * this.canvasElement.width;
         const y = wrist.y * this.canvasElement.height;
         
+        // Swap hand labels to match mirrored display
+        const displayLabel = handedness.label === 'Left' ? 'Right' : 'Left';
+        const isDisplayLeft = displayLabel === 'Left';
+        
         // Set text style
         this.canvasCtx.font = '16px Arial';
-        this.canvasCtx.fillStyle = handedness.label === 'Left' ? '#00FF00' : '#0080FF';
+        this.canvasCtx.fillStyle = isDisplayLeft ? '#00FF00' : '#0080FF';
         this.canvasCtx.strokeStyle = '#000000';
         this.canvasCtx.lineWidth = 2;
         
-        const label = `${handedness.label} Hand`;
+        const label = `${displayLabel} Hand`;
         const confidence = `${(handedness.score * 100).toFixed(0)}%`;
         
         // Draw background rectangle
@@ -799,7 +871,7 @@ class MediaPipeHandler {
         this.canvasCtx.fillRect(x - 5, y - 40, textWidth + 10, 35);
         
         // Draw text
-        this.canvasCtx.fillStyle = handedness.label === 'Left' ? '#00FF00' : '#0080FF';
+        this.canvasCtx.fillStyle = isDisplayLeft ? '#00FF00' : '#0080FF';
         this.canvasCtx.fillText(label, x, y - 20);
         this.canvasCtx.fillText(confidence, x, y - 5);
     }
@@ -958,8 +1030,9 @@ class MediaPipeHandler {
         return this.lastResults.multiHandLandmarks.map((landmarks, index) => ({
             landmarks: landmarks,
             handedness: this.lastResults.multiHandedness[index],
-            isLeft: this.lastResults.multiHandedness[index].label === 'Left',
-            isRight: this.lastResults.multiHandedness[index].label === 'Right',
+            // Swap left/right due to mirroring for natural interaction
+            isLeft: this.lastResults.multiHandedness[index].label === 'Right', // Swapped
+            isRight: this.lastResults.multiHandedness[index].label === 'Left', // Swapped
             confidence: this.lastResults.multiHandedness[index].score,
             fingerTips: {
                 thumb: landmarks[4],
@@ -1037,7 +1110,7 @@ class MediaPipeHandler {
         const handsInfo = this.getHandsInfo();
         if (!handsInfo) return 0;
 
-        // ONLY use right hand for volume control
+        // Use right hand for volume control (getHandsInfo already handles mirroring)
         const rightHand = handsInfo.find(hand => hand.isRight);
         if (!rightHand) return 0;
 
@@ -1062,7 +1135,7 @@ class MediaPipeHandler {
         const handsInfo = this.getHandsInfo();
         if (!handsInfo) return { note: 'C4', frequency: 261.63 };
 
-        // ONLY use right hand for pitch control
+        // Use right hand for pitch control (getHandsInfo already handles mirroring)
         const rightHand = handsInfo.find(hand => hand.isRight);
         if (!rightHand) return { note: 'C4', frequency: 261.63 };
 
